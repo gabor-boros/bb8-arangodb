@@ -13,10 +13,11 @@
 //! ```
 //! use bb8::Pool;
 //! use bb8_arangodb::{ArangoConnectionManager, AuthenticationMethod};
+//! use arangors::uclient::reqwest::ReqwestClient;
 //!
 //! tokio_test::block_on(async {
-//!     let manager = ArangoConnectionManager::new(
-//!         "http://localhost:8529",
+//!     let manager = ArangoConnectionManager::<ReqwestClient>::new(
+//!         "http://localhost:8529".to_string(),
 //!         AuthenticationMethod::JWTAuth("root".to_string(), "openSesame".to_string())
 //!     );
 //!
@@ -34,16 +35,20 @@
 //! ```
 //! use bb8::Pool;
 //! use bb8_arangodb::{ArangoConnectionManager, AuthenticationMethod};
+//! use arangors::uclient::reqwest::ReqwestClient;
 //!
 //! tokio_test::block_on(async {
-//!     let manager = ArangoConnectionManager::new(
-//!         "http://localhost:8529",
+//!     let manager = ArangoConnectionManager::<ReqwestClient>::new(
+//!         "http://localhost:8529".to_string(),
 //!         AuthenticationMethod::BasicAuth("root".to_string(), "openSesame".to_string())
 //!     );
 //!
 //!     let pool = Pool::builder().max_size(5).build(manager).await.unwrap();
 //!
-//!     // ...
+//!     let conn = pool.get().await.unwrap();
+//!     let dbs = conn.accessible_databases().await.unwrap();
+//!
+//!     assert!(!dbs.is_empty());
 //! });
 //! ```
 //!
@@ -52,10 +57,13 @@
 //! ```no_run
 //! use bb8::Pool;
 //! use bb8_arangodb::{ArangoConnectionManager, AuthenticationMethod};
+//! use arangors::uclient::reqwest::ReqwestClient;
 //!
 //! tokio_test::block_on(async {
-//!     let manager =
-//!         ArangoConnectionManager::new("http://localhost:8529", AuthenticationMethod::NoAuth);
+//!     let manager = ArangoConnectionManager::<ReqwestClient>::new(
+//!         "http://localhost:8529".to_string(),
+//!         AuthenticationMethod::NoAuth
+//!     );
 //!
 //!     let pool = Pool::builder().max_size(5).build(manager).await.unwrap();
 //!
@@ -65,10 +73,12 @@
 
 #![deny(missing_docs, missing_debug_implementations)]
 
+use std::marker::PhantomData;
+
 pub use arangors;
 pub use bb8;
 
-use arangors::{uclient, ClientError, Connection, GenericConnection};
+use arangors::{uclient, ClientError, GenericConnection};
 use async_trait::async_trait;
 
 /// Kind of the authentication method to use when establishing a connection.
@@ -86,35 +96,39 @@ pub enum AuthenticationMethod {
 
 /// A connection manager for ArangoDB.
 #[derive(Debug)]
-pub struct ArangoConnectionManager {
+pub struct ArangoConnectionManager<C: uclient::ClientExt> {
     url: String,
     method: AuthenticationMethod,
+    phantom: PhantomData<C>,
 }
 
-impl ArangoConnectionManager {
+impl<C: uclient::ClientExt> ArangoConnectionManager<C> {
     /// Create a new ArangoConnectionManager..
-    pub fn new(url: &str, method: AuthenticationMethod) -> Self {
+    pub fn new(url: String, method: AuthenticationMethod) -> Self {
         Self {
-            url: url.to_string(),
+            url,
             method,
+            phantom: PhantomData,
         }
     }
 }
 
 #[async_trait]
-impl bb8::ManageConnection for ArangoConnectionManager {
-    type Connection = GenericConnection<uclient::reqwest::ReqwestClient>;
+impl<C: uclient::ClientExt + Send + 'static> bb8::ManageConnection for ArangoConnectionManager<C> {
+    type Connection = GenericConnection<C>;
     type Error = ClientError;
 
     async fn connect(&self) -> Result<Self::Connection, Self::Error> {
         match &self.method {
             AuthenticationMethod::BasicAuth(username, password) => {
-                Connection::establish_basic_auth(&self.url, username, password).await
+                Self::Connection::establish_basic_auth(&self.url, username, password).await
             }
             AuthenticationMethod::JWTAuth(username, password) => {
-                Connection::establish_jwt(&self.url, username, password).await
+                Self::Connection::establish_jwt(&self.url, username, password).await
             }
-            AuthenticationMethod::NoAuth => Connection::establish_without_auth(&self.url).await,
+            AuthenticationMethod::NoAuth => {
+                Self::Connection::establish_without_auth(&self.url).await
+            }
         }
     }
 
