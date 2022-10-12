@@ -15,6 +15,7 @@ Make sure to add `bb8` and `bb8-arangodb` to your `Cargo.toml`, like:
 [dependencies]
 bb8 = "0.8"
 bb8-arangodb = "0.1"
+arangors = "0.5"
 ```
 
 ## Example
@@ -22,12 +23,13 @@ bb8-arangodb = "0.1"
 ```rust
 use bb8::Pool;
 use bb8_arangodb::{ArangoConnectionManager, AuthenticationMethod};
+use arangors::uclient::reqwest::ReqwestClient;
 use futures_util::join_all;
 
 #[tokio::main]
 async fn main() {
-    let manager = ArangoConnectionManager::new(
-        "http://localhost:8529",
+    let manager = ArangoConnectionManager::<ReqwestClient>::new(
+        "http://localhost:8529".to_string(),
         AuthenticationMethod::JWTAuth("root".to_string(), "openSesame".to_string())
     );
 
