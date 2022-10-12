@@ -114,9 +114,7 @@ impl<C: uclient::ClientExt> ArangoConnectionManager<C> {
 }
 
 #[async_trait]
-impl<C: uclient::ClientExt + Send + 'static> bb8::ManageConnection
-    for ArangoConnectionManager<C>
-{
+impl<C: uclient::ClientExt + Send + 'static> bb8::ManageConnection for ArangoConnectionManager<C> {
     type Connection = GenericConnection<C>;
     type Error = ClientError;
 
