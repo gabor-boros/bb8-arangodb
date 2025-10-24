@@ -13,7 +13,7 @@
 //! ```
 //! use bb8::Pool;
 //! use bb8_arangodb::{ArangoConnectionManager, AuthenticationMethod};
-//! use arangors::uclient::reqwest::ReqwestClient;
+//! use arangors::client::reqwest::ReqwestClient;
 //!
 //! tokio_test::block_on(async {
 //!     let manager = ArangoConnectionManager::<ReqwestClient>::new(
@@ -35,7 +35,7 @@
 //! ```
 //! use bb8::Pool;
 //! use bb8_arangodb::{ArangoConnectionManager, AuthenticationMethod};
-//! use arangors::uclient::reqwest::ReqwestClient;
+//! use arangors::client::reqwest::ReqwestClient;
 //!
 //! tokio_test::block_on(async {
 //!     let manager = ArangoConnectionManager::<ReqwestClient>::new(
@@ -57,7 +57,7 @@
 //! ```no_run
 //! use bb8::Pool;
 //! use bb8_arangodb::{ArangoConnectionManager, AuthenticationMethod};
-//! use arangors::uclient::reqwest::ReqwestClient;
+//! use arangors::client::reqwest::ReqwestClient;
 //!
 //! tokio_test::block_on(async {
 //!     let manager = ArangoConnectionManager::<ReqwestClient>::new(
@@ -78,8 +78,7 @@ use std::marker::PhantomData;
 pub use arangors;
 pub use bb8;
 
-use arangors::{uclient, ClientError, GenericConnection};
-use async_trait::async_trait;
+use arangors::{client, ClientError, GenericConnection};
 
 /// Kind of the authentication method to use when establishing a connection.
 #[derive(Debug)]
@@ -96,13 +95,13 @@ pub enum AuthenticationMethod {
 
 /// A connection manager for ArangoDB.
 #[derive(Debug)]
-pub struct ArangoConnectionManager<C: uclient::ClientExt> {
+pub struct ArangoConnectionManager<C: client::ClientExt> {
     url: String,
     method: AuthenticationMethod,
     phantom: PhantomData<C>,
 }
 
-impl<C: uclient::ClientExt> ArangoConnectionManager<C> {
+impl<C: client::ClientExt> ArangoConnectionManager<C> {
     /// Create a new ArangoConnectionManager..
     pub fn new(url: String, method: AuthenticationMethod) -> Self {
         Self {
@@ -113,8 +112,7 @@ impl<C: uclient::ClientExt> ArangoConnectionManager<C> {
     }
 }
 
-#[async_trait]
-impl<C: uclient::ClientExt + Send + 'static> bb8::ManageConnection for ArangoConnectionManager<C> {
+impl<C: client::ClientExt + Send + 'static> bb8::ManageConnection for ArangoConnectionManager<C> {
     type Connection = GenericConnection<C>;
     type Error = ClientError;
 
